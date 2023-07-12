@@ -74,82 +74,90 @@ def remember_prompt(remember_minutes):
     return response
 
 
-if config_path.exists():
-    # Read .git/config
-    config = configparser.ConfigParser()
-    config.optionxform = str
-    config.read(config_path)
+def main():
+    if config_path.exists():
+        # Read .git/config
+        config = configparser.ConfigParser()
+        config.optionxform = str
+        config.read(config_path)
 
-    # Check if [user] section exists in .git/config
-    if "user" not in config.sections():
-        config.add_section("user")
+        # Check if [user] section exists in .git/config
+        if "user" not in config.sections():
+            config.add_section("user")
 
-    # Check if [authors] section exists in .git/config
-    if "authors" not in config.sections():
-        config.add_section("authors")
+        # Check if [authors] section exists in .git/config
+        if "authors" not in config.sections():
+            config.add_section("authors")
 
-    # Get user details
-    user = config["user"]
+        # Get user details
+        user = config["user"]
 
-    # Get author list
-    authors = config["authors"]
+        # Get author list
+        authors = config["authors"]
 
-    # Determine if user has expired and permit commit if not
-    if time.time() < user.getfloat("expires", 0.0):
-        print("User has not expired.")
-        sys.exit(0)
+        # Determine if user has expired and permit commit if not
+        if time.time() < user.getfloat("expires", 0.0):
+            print("User has not expired.")
+            sys.exit(0)
 
-    # Get expired user details
-    old_name = user.get("name", None)
-    old_email = user.get("email", None)
+        # Get expired user details
+        old_name = user.get("name", None)
+        old_email = user.get("email", None)
 
-    # Present a list of authors to choose from
-    if len(authors):
-        name, email = user_choice(authors, old_name)
-    else:
-        name = None
+        # Present a list of authors to choose from
+        if len(authors):
+            name, email = user_choice(authors, old_name)
+        else:
+            name = None
 
-    # Get new user details if dialog was cancelled
-    if name is None:
-        name, email = user_prompt()
-        # Exit if cancel is pressed or null entry
-        if name is None or name is "":
-            print(
-                f"Please choose or enter a new user and commit again.", file=sys.stderr
-            )
+        # Get new user details if dialog was cancelled
+        if name is None:
+            name, email = user_prompt()
+            # Exit if cancel is pressed or null entry
+            if name is None or name is "":
+                print(
+                    f"Please choose or enter a new user and commit again.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            # Add the name and email to the author list if new
+            elif name not in authors:
+                authors[name] = email
+
+        # Finally, set the user name and email in config
+        user["name"], user["email"] = name, email
+
+        # Check if remember duration exists
+        remember_minutes = user.getfloat("rememberminutes", 1.0)
+        user["rememberminutes"] = f"{remember_minutes:.1f}"
+
+        # Prompt to remember user for remember_minutes
+        if remember_prompt(user["rememberminutes"]):
+            expires = time.time() + 60 * remember_minutes
+            user["expires"] = f"{expires:.1f}"
+
+        # Backup config file before updating it
+        backup_path = config_path.parent / (config_path.name + ".bak")
+        shutil.copy(config_path, backup_path)
+        with open(config_path, "w") as config_file:
+            config.write(config_file)
+
+        # If the user has changed, fail process and require recommit
+        if old_name != user["name"] or old_email != user["email"]:
+            print("Git username changed. Please commit again.", file=sys.stderr)
             sys.exit(1)
-        # Add the name and email to the author list if new
-        elif name not in authors:
-            authors[name] = email
 
-    # Finally, set the user name and email in config
-    user["name"], user["email"] = name, email
+        # Otherwise permit commit to proceed
+        else:
+            print("Git username has not changed.")
+            sys.exit(0)
 
-    # Check if remember duration exists
-    remember_minutes = user.getfloat("rememberminutes", 1.0)
-    user["rememberminutes"] = f"{remember_minutes:.1f}"
-
-    # Prompt to remember user for remember_minutes
-    if remember_prompt(user["rememberminutes"]):
-        expires = time.time() + 60 * remember_minutes
-        user["expires"] = f"{expires:.1f}"
-
-    # Backup config file before updating it
-    backup_path = config_path.parent / (config_path.name + ".bak")
-    shutil.copy(config_path, backup_path)
-    with open(config_path, "w") as config_file:
-        config.write(config_file)
-
-    # If the user has changed, fail process and require recommit
-    if old_name != user["name"] or old_email != user["email"]:
-        print("Git username changed. Please commit again.", file=sys.stderr)
+    else:
+        print(
+            f"{config_path} not found. Please create and commit again.", file=sys.stderr
+        )
         sys.exit(1)
 
-    # Otherwise permit commit to proceed
-    else:
-        print("Git username has not changed.")
-        sys.exit(0)
 
-else:
-    print(f"{config_path} not found. Please create and commit again.", file=sys.stderr)
-    sys.exit(1)
+if __name__ == "__main__":
+    main()
