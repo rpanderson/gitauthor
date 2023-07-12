@@ -13,13 +13,35 @@ import easygui
 config_path = Path(".git/config")
 
 
+def user_choice(authors, default_name=None):
+    names = list(authors.keys())
+    names.append("Other")
+    if default_name in names:
+        ix = names.index(default_name)
+    else:
+        ix = 0
+    response = easygui.choicebox(
+        msg="Choose from the list or press 'Cancel' to enter a new author",
+        title="Choose a commit author",
+        choices=names,
+        preselect=ix,
+    )
+    if response is None or response == "Other":
+        return None, None
+    else:
+        return response, authors[response]
+
+
 def user_prompt():
-    new_name, new_email = easygui.multenterbox(
+    response = easygui.multenterbox(
         msg="Enter commit author details",
         title="Git commit author",
         fields=["Full name", "Email address"],
     )
-    return new_name, new_email
+    if response is None:
+        return None, None
+    else:
+        return response
 
 
 def remember_prompt(remember_minutes):
@@ -35,14 +57,22 @@ def remember_prompt(remember_minutes):
 if config_path.exists():
     # Read .git/config
     config = configparser.ConfigParser()
+    config.optionxform = str
     config.read(config_path)
 
     # Check if [user] section exists in .git/config
     if "user" not in config.sections():
         config.add_section("user")
 
+    # Check if [authors] section exists in .git/config
+    if "authors" not in config.sections():
+        config.add_section("authors")
+
     # Get user details
     user = config["user"]
+
+    # Get author list
+    authors = config["authors"]
 
     # Determine if user has expired and permit commit if not
     if time.time() < user.getfloat("expires", 0.0):
@@ -50,12 +80,30 @@ if config_path.exists():
         sys.exit(0)
 
     # Get expired user details
-    old_name = user.get("name", "")
-    old_email = user.get("email", "")
+    old_name = user.get("name", None)
+    old_email = user.get("email", None)
 
-    # Get new user details
-    user["name"], user["email"] = user_prompt()
-    # TODO: check if username was entered
+    # Present a list of authors to choose from
+    if len(authors):
+        name, email = user_choice(authors, old_name)
+    else:
+        name = None
+
+    # Get new user details if dialog was cancelled
+    if name is None:
+        name, email = user_prompt()
+        # Exit if cancel is pressed or null entry
+        if name is None or name is "":
+            print(
+                f"Please choose or enter a new user and commit again.", file=sys.stderr
+            )
+            sys.exit(1)
+        # Add the name and email to the author list if new
+        elif name not in authors:
+            authors[name] = email
+
+    # Finally, set the user name and email in config
+    user["name"], user["email"] = name, email
 
     # Check if remember duration exists
     remember_minutes = user.getfloat("rememberminutes", 1.0)
