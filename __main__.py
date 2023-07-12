@@ -5,15 +5,20 @@ from pathlib import Path
 import configparser
 import easygui
 
-# A script for setting commit author in git.
-#
-# It will remember your user details for remember_minutes
-# before prompting again, if you say yes to 'Remember commit author?'.
-
 config_path = Path(".git/config")
 
 
 def user_choice(authors, default_name=None):
+    """
+    Prompt the user to choose a commit author from a list or enter a new author.
+
+    Args:
+        authors (dict): Dictionary containing the authors' names and email addresses.
+        default_name (str, optional): Default author name. Defaults to None.
+
+    Returns:
+        tuple: Tuple containing the chosen author's name and email address, or (None, None) if a new author is entered.
+    """
     names = list(authors.keys())
     names.append("Other")
     if default_name in names:
@@ -33,6 +38,12 @@ def user_choice(authors, default_name=None):
 
 
 def user_prompt():
+    """
+    Prompt the user to enter commit author details manually.
+
+    Returns:
+        tuple: Tuple containing the entered author's name and email address, or (None, None) if the prompt is canceled.
+    """
     response = easygui.multenterbox(
         msg="Enter commit author details",
         title="Git commit author",
@@ -45,6 +56,15 @@ def user_prompt():
 
 
 def remember_prompt(remember_minutes):
+    """
+    Prompt the user to choose whether to remember the commit author for a certain duration.
+
+    Args:
+        remember_minutes (float): Number of minutes to remember the commit author.
+
+    Returns:
+        bool: True if the user chooses to remember, False otherwise.
+    """
     response = easygui.ynbox(
         msg=f"Remember commit author for {remember_minutes} minutes?",
         title="Git commit author",
