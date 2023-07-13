@@ -17,7 +17,8 @@ def user_choice(authors, default_name=None):
         default_name (str, optional): Default author name. Defaults to None.
 
     Returns:
-        tuple: Tuple containing the chosen author's name and email address, or (None, None) if a new author is entered.
+        tuple: Tuple containing the chosen author's name and email address,
+        or (None, None) if a new author is entered.
     """
     names = list(authors.keys())
     names.append("Other")
@@ -42,7 +43,8 @@ def user_prompt():
     Prompt the user to enter commit author details manually.
 
     Returns:
-        tuple: Tuple containing the entered author's name and email address, or (None, None) if the prompt is canceled.
+        tuple: Tuple containing the entered author's name and email address,
+        or (None, None) if the prompt is canceled.
     """
     response = easygui.multenterbox(
         msg="Enter commit author details",
@@ -57,7 +59,8 @@ def user_prompt():
 
 def remember_prompt(remember_minutes):
     """
-    Prompt the user to choose whether to remember the commit author for a certain duration.
+    Prompt the user to choose whether to remember the commit author for a
+    certain duration.
 
     Args:
         remember_minutes (float): Number of minutes to remember the commit author.
@@ -92,8 +95,8 @@ def main():
         # Get user details
         user = config["user"]
 
-        # Get author list
-        authors = config["authors"]
+        # Get author list (replacing underscores with spaces in name)
+        authors = {key.replace("_", " "): val for key, val in config["authors"].items()}
 
         # Determine if user has expired and permit commit if not
         if time.time() < user.getfloat("expires", 0.0):
@@ -114,15 +117,15 @@ def main():
         if name is None:
             name, email = user_prompt()
             # Exit if cancel is pressed or null entry
-            if name is None or name is "":
+            if name is None or name == "":
                 print(
-                    f"Please choose or enter a new user and commit again.",
+                    "Please choose or enter a new user and commit again.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
-            # Add the name and email to the author list if new
+            # Add name and email to the author list if new (with spaces as underscores)
             elif name not in authors:
-                authors[name] = email
+                authors[name.replace(" ", "_")] = email
 
         # Finally, set the user name and email in config
         user["name"], user["email"] = name, email
